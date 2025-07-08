@@ -45,5 +45,21 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	
+	<!-- ✅ ADD THESE FOR FIREBASE NOTIFICATIONS -->
+	<key>aps-environment</key>
+	<string>development</string>
+	
+	<!-- ✅ ADD THESE FOR CAMERA PERMISSIONS -->
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs camera access for face authentication.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs photo library access to save face images.</string>
+	
+	<!-- ✅ ADD THESE FOR LOCATION PERMISSIONS -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs location access for attendance tracking.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app needs location access for attendance tracking.</string>
 </dict>
 </plist>
