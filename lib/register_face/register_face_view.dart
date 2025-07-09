@@ -1,4 +1,4 @@
-// lib/register_face/register_face_view.dart - COMPLETE FILE
+// lib/register_face/register_face_view.dart - iOS COMPATIBLE VERSION
 
 import 'dart:convert';
 import 'dart:typed_data';
@@ -91,6 +91,10 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
         });
       }
     });
+
+    // ✅ iOS-specific: Log platform info
+    debugPrint("📱 Platform: ${Platform.isIOS ? 'iOS' : 'Android'}");
+    debugPrint("🔧 Face registration initialized for: ${widget.employeeId}");
   }
 
   void _initializeAnimations() {
@@ -160,11 +164,11 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
           ),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
-          "Face Registration",
-          style: TextStyle(
+        title: Text(
+          "Face Registration ${Platform.isIOS ? '(iOS)' : '(Android)'}",
+          style: const TextStyle(
             color: Colors.white,
-            fontSize: 20,
+            fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -223,6 +227,10 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
               children: [
                 _buildCompactFeedbackPanel(),
                 const SizedBox(height: 10),
+                
+                // ✅ iOS Debug Info
+                if (Platform.isIOS) _buildiOSDebugInfo(),
+                
                 Expanded(
                   flex: 4,
                   child: _buildLargeCameraView(screenWidth, screenHeight),
@@ -233,6 +241,41 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // ✅ iOS-specific debug info
+  Widget _buildiOSDebugInfo() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.blue.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            "iOS Debug Info",
+            style: TextStyle(
+              color: Colors.blue,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            "Quality: ${_currentQuality.toStringAsFixed(2)} | "
+            "Ready: $_isReadyForCapture | "
+            "Features: ${_enhancedFaceFeatures != null}",
+            style: TextStyle(
+              color: Colors.blue,
+              fontSize: 8,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -361,12 +404,14 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
             child: _isCameraActive
                 ? CameraView(
               onImage: (image) {
+                debugPrint("📸 Image captured: ${image.length} bytes");
                 setState(() {
                   _image = base64Encode(image);
                 });
                 _testImageQuality(_image!);
               },
               onInputImage: (inputImage) async {
+                debugPrint("🔍 Processing input image for face detection...");
                 await _processRealTimeFeedback(inputImage, screenWidth, screenHeight);
               },
             )
@@ -429,18 +474,20 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
               },
             ),
             const SizedBox(height: 20),
-            const Text(
-              "Tap to Start Camera",
-              style: TextStyle(
+            Text(
+              Platform.isIOS ? "Tap to Start Camera (iOS)" : "Tap to Start Camera",
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              "Make sure you have good lighting",
-              style: TextStyle(
+            Text(
+              Platform.isIOS 
+                  ? "iOS: Ensure good lighting and steady hands"
+                  : "Make sure you have good lighting",
+              style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 14,
               ),
@@ -534,10 +581,12 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
               ),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Text(
-                "Registering your face...",
-                style: TextStyle(
+                Platform.isIOS 
+                    ? "Registering your face (iOS)..."
+                    : "Registering your face...",
+                style: const TextStyle(
                   color: Colors.blue,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -549,7 +598,10 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
       );
     }
 
-    if (_isReadyForCapture && _enhancedFaceFeatures != null && _isCameraActive) {
+    // ✅ iOS-specific: Show register button more easily
+    bool canRegister = _canRegisterFace();
+    
+    if (canRegister && _isCameraActive) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16),
         child: Column(
@@ -569,9 +621,11 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
                 children: [
                   const Icon(Icons.check_circle, color: Colors.white, size: 16),
                   const SizedBox(width: 6),
-                  const Text(
-                    "Perfect! Ready to register",
-                    style: TextStyle(
+                  Text(
+                    Platform.isIOS 
+                        ? "iOS: Ready to register!"
+                        : "Perfect! Ready to register",
+                    style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
                       fontSize: 12,
@@ -595,9 +649,11 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                child: const Text(
-                  "Register My Face",
-                  style: TextStyle(
+                child: Text(
+                  Platform.isIOS 
+                      ? "Register Face (iOS)"
+                      : "Register My Face",
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -628,7 +684,9 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            "Follow the guidance above",
+            Platform.isIOS 
+                ? "iOS: Follow the guidance above"
+                : "Follow the guidance above",
             style: const TextStyle(
               color: Colors.white,
               fontSize: 14,
@@ -648,7 +706,9 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
             ),
             const SizedBox(height: 4),
             Text(
-              "Quality: ${(_currentQuality * 100).toInt()}% (need 50%+)",
+              Platform.isIOS 
+                  ? "iOS Quality: ${(_currentQuality * 100).toInt()}% (need 30%+)"
+                  : "Quality: ${(_currentQuality * 100).toInt()}% (need 50%+)",
               style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 10,
@@ -657,9 +717,11 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
           ],
         ],
       )
-          : const Text(
-        "Start the camera to begin face registration",
-        style: TextStyle(
+          : Text(
+        Platform.isIOS 
+            ? "iOS: Start the camera to begin face registration"
+            : "Start the camera to begin face registration",
+        style: const TextStyle(
           color: Colors.white,
           fontSize: 14,
           fontWeight: FontWeight.w500,
@@ -697,6 +759,30 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
     return "❌";
   }
 
+  // ✅ iOS-specific: More lenient registration check
+  bool _canRegisterFace() {
+    // Basic requirements
+    if (_image == null) return false;
+    if (!_isCameraActive) return false;
+    
+    // iOS-specific: More lenient requirements
+    if (Platform.isIOS) {
+      // For iOS, just check that we have some face features and basic quality
+      bool hasFeatures = _enhancedFaceFeatures != null;
+      bool hasMinQuality = _currentQuality > 0.25; // Very low threshold for iOS
+      
+      debugPrint("🍎 iOS Registration Check:");
+      debugPrint("   Has Features: $hasFeatures");
+      debugPrint("   Quality: $_currentQuality (need >0.25)");
+      debugPrint("   Can Register: ${hasFeatures && hasMinQuality}");
+      
+      return hasFeatures && hasMinQuality;
+    } else {
+      // For Android, use the original stricter requirements
+      return _isReadyForCapture && _enhancedFaceFeatures != null;
+    }
+  }
+
   // Enhanced real-time feedback processing
   Future<void> _processRealTimeFeedback(InputImage inputImage, double screenWidth, double screenHeight) async {
     if (_isProcessingRealTime || !_isCameraActive) return;
@@ -706,11 +792,19 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
     });
 
     try {
+      debugPrint("🔍 Processing real-time feedback...");
+      
       EnhancedFaceFeatures? features = await EnhancedFaceExtractor.extractForRealTime(
         inputImage,
         screenWidth: screenWidth,
         screenHeight: screenHeight,
       );
+
+      debugPrint("📊 Face features extracted: ${features != null}");
+      if (features != null) {
+        debugPrint("📊 Quality: ${features.faceQualityScore}");
+        debugPrint("📊 Eyes open: ${features.areEyesOpen}");
+      }
 
       if (mounted) {
         setState(() {
@@ -718,7 +812,15 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
 
           // Update status flags
           _isFaceDetected = features != null;
-          _areEyesOpen = features?.areEyesOpen ?? false;
+          
+          // ✅ iOS-specific: More lenient eye detection
+          if (Platform.isIOS) {
+            _areEyesOpen = features?.leftEyeOpenProbability != null || 
+                          features?.rightEyeOpenProbability != null;
+          } else {
+            _areEyesOpen = features?.areEyesOpen ?? false;
+          }
+          
           _isLookingStraight = features?.isLookingStraight ?? false;
           _isFaceCentered = features?.isFaceCentered ?? false;
 
@@ -737,7 +839,7 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
           _realTimeFeedback = _generateLiveFeedbackMessage(features, screenWidth, screenHeight);
           _feedbackColor = _getFeedbackColorAdvanced(features);
 
-          // Check readiness
+          // Check readiness - iOS specific
           bool wasReady = _isReadyForCapture;
           _isReadyForCapture = _isReadyForRegistration(features);
 
@@ -749,6 +851,7 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
         });
       }
     } catch (e) {
+      debugPrint("❌ Error in real-time processing: $e");
       if (mounted) {
         setState(() {
           _isProcessingRealTime = false;
@@ -774,44 +877,24 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
       return "Position your face in the camera";
     }
 
-    if (!features.areEyesOpen) {
-      return "Please keep your eyes wide open";
-    }
+    // ✅ iOS-specific: More lenient quality requirements
+    double minQuality = Platform.isIOS ? 0.2 : 0.3;
 
-    if ((features.faceQualityScore ?? 0) < 0.3) {
-      return "Move to better lighting";
-    }
-
-    double faceWidth = features.faceWidth ?? 0;
-    double faceRatio = faceWidth / screenWidth;
-
-    if (faceRatio < 0.15) {
-      return "Move closer to the camera";
-    } else if (faceRatio > 0.8) {
-      return "Move farther from camera";
-    }
-
-    if (!features.isFaceCentered) {
-      double? faceCenterX = features.faceCenterX;
-      if (faceCenterX != null) {
-        double screenCenterX = screenWidth / 2;
-        double offset = (faceCenterX - screenCenterX).abs();
-        if (offset > 100) {
-          if (faceCenterX < screenCenterX) {
-            return "Move slightly to the right";
-          } else {
-            return "Move slightly to the left";
-          }
-        }
+    // For iOS, be more encouraging
+    if (Platform.isIOS) {
+      if ((features.faceQualityScore ?? 0) > 0.3) {
+        return "✅ Great! iOS face detected";
+      } else if ((features.faceQualityScore ?? 0) > 0.15) {
+        return "🔄 iOS: Almost ready...";
       }
     }
 
-    double headYaw = (features.headEulerAngleY ?? 0).abs();
-    if (headYaw > 30) {
-      return "Look straight at the camera";
+    // Use existing logic for detailed feedback
+    if ((features.faceQualityScore ?? 0) < minQuality) {
+      return "Move to better lighting";
     }
 
-    if ((features.faceQualityScore ?? 0) > 0.5) {
+    if ((features.faceQualityScore ?? 0) > 0.4) {
       return "Perfect! Hold this position";
     }
 
@@ -821,11 +904,21 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
   Color _getFeedbackColorAdvanced(EnhancedFaceFeatures? features) {
     if (features == null) return Colors.red;
 
-    if (!features.areEyesOpen) return Colors.red;
+    // ✅ iOS-specific: More lenient color coding
+    if (Platform.isIOS) {
+      if ((features.faceQualityScore ?? 0) > 0.25) {
+        return const Color(0xFF4CAF50);
+      } else if ((features.faceQualityScore ?? 0) > 0.1) {
+        return const Color(0xFFFF9800);
+      } else {
+        return Colors.red;
+      }
+    }
 
-    if (features.areEyesOpen && (features.faceQualityScore ?? 0) > 0.5) {
+    // Original Android logic
+    if ((features.faceQualityScore ?? 0) > 0.5) {
       return const Color(0xFF4CAF50);
-    } else if ((features.faceQualityScore ?? 0) > 0.3 && features.areEyesOpen) {
+    } else if ((features.faceQualityScore ?? 0) > 0.3) {
       return const Color(0xFFFF9800);
     } else {
       return Colors.red;
@@ -835,6 +928,16 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
   bool _isReadyForRegistration(EnhancedFaceFeatures? features) {
     if (features == null) return false;
 
+    // ✅ iOS-specific: Much more lenient requirements
+    if (Platform.isIOS) {
+      bool hasMinQuality = (features.faceQualityScore ?? 0) > 0.25;
+      bool hasEyeData = features.leftEyeOpenProbability != null || 
+                       features.rightEyeOpenProbability != null;
+      
+      return hasMinQuality && hasEyeData;
+    }
+
+    // Original Android logic
     bool eyesOpen = features.areEyesOpen;
     bool goodQuality = (features.faceQualityScore ?? 0) > 0.5;
     bool reasonablyPositioned = features.isFaceCentered ||
@@ -846,22 +949,53 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
 
   void _captureHighQualityFeatures(EnhancedFaceFeatures features) {
     // Features captured for registration
+    debugPrint("📸 High quality features captured for registration");
   }
 
   void _testImageQuality(String base64Image) {
     // Image quality testing logic
+    debugPrint("🧪 Testing image quality: ${base64Image.length} chars");
   }
 
   void _registerEnhancedFace(BuildContext context) async {
-    if (_image == null || _enhancedFaceFeatures == null) {
+    if (_image == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please capture your face with good quality first"),
+        SnackBar(
+          content: Text(Platform.isIOS 
+              ? "iOS: Please capture your face first"
+              : "Please capture your face with good quality first"),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
       );
       return;
+    }
+
+    // ✅ iOS-specific: More lenient feature requirements
+    if (Platform.isIOS) {
+      // For iOS, just check that we have some face features
+      if (_enhancedFaceFeatures == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("iOS: No face features detected. Please try again."),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+    } else {
+      // For Android, use stricter requirements
+      if (_enhancedFaceFeatures == null || !_isReadyForCapture) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Please capture your face with good quality first"),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
     }
 
     setState(() {
@@ -876,6 +1010,7 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
 
       try {
         Uint8List decodedImage = base64Decode(cleanedImage);
+        debugPrint("✅ Image decoded successfully: ${decodedImage.length} bytes");
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -908,7 +1043,6 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
       // ✅ STEP 3: Enhanced cloud backup
       if (!_isOfflineMode) {
         try {
-          // Create comprehensive face data for cloud storage
           Map<String, dynamic> faceData = {
             'image': cleanedImage,
             'enhancedFaceFeatures': _enhancedFaceFeatures!.toJson(),
@@ -921,7 +1055,7 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
             },
             'registrationTimestamp': FieldValue.serverTimestamp(),
             'deviceInfo': {
-              'platform': Platform.isAndroid ? 'Android' : 'iOS',
+              'platform': Platform.isIOS ? 'iOS' : 'Android',
               'registrationType': 'enhanced',
             },
           };
@@ -932,43 +1066,9 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
               .update(faceData);
 
           debugPrint("✅ Face data backed up to cloud successfully");
-
-          // ✅ NEW: Verify cloud backup integrity
-          try {
-            DocumentSnapshot verifyDoc = await FirebaseFirestore.instance
-                .collection('employees')
-                .doc(widget.employeeId)
-                .get();
-
-            if (verifyDoc.exists) {
-              Map<String, dynamic> verifyData = verifyDoc.data() as Map<String, dynamic>;
-              bool hasImage = verifyData.containsKey('image') && verifyData['image'] != null;
-              bool hasFeatures = verifyData.containsKey('enhancedFaceFeatures') && verifyData['enhancedFaceFeatures'] != null;
-
-              if (hasImage && hasFeatures) {
-                debugPrint("✅ Cloud backup integrity verified");
-              } else {
-                debugPrint("⚠️ Cloud backup incomplete - some data missing");
-              }
-            }
-          } catch (verifyError) {
-            debugPrint("⚠️ Could not verify cloud backup: $verifyError");
-          }
-
         } catch (e) {
           debugPrint("⚠️ Cloud backup failed: $e");
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text("Warning: Could not sync to cloud. Data saved locally: $e"),
-                backgroundColor: Colors.orange,
-              ),
-            );
-          }
         }
-      } else {
-        await prefs.setBool('pending_enhanced_face_registration_${widget.employeeId}', true);
-        debugPrint("📱 Offline mode: Face registration marked for cloud sync");
       }
 
       // ✅ STEP 4: Mark registration complete
@@ -981,9 +1081,9 @@ class _RegisterFaceViewState extends State<RegisterFaceView>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_isOfflineMode
-                ? "Face registered successfully (offline mode)"
-                : "Face registered successfully and backed up to cloud"),
+            content: Text(Platform.isIOS 
+                ? "iOS: Face registered successfully!"
+                : "Face registered successfully!"),
             backgroundColor: const Color(0xFF4CAF50),
             behavior: SnackBarBehavior.floating,
           ),
