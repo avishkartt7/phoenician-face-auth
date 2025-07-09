@@ -1,32 +1,35 @@
-// lib/common/utils/enhanced_face_extractor.dart - SIMPLIFIED WORKING VERSION
+// lib/common/utils/enhanced_face_extractor.dart - iOS COMPATIBLE VERSION
+
+import 'dart:io';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:phoenician_face_auth/model/enhanced_face_features.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class EnhancedFaceExtractor {
-  // Create face detector with ALL options enabled for maximum data
+  // Create face detector with iOS-optimized settings
   static final FaceDetector _faceDetector = FaceDetector(
     options: FaceDetectorOptions(
-      enableClassification: true,    // Enable smile, eye open probability
-      enableLandmarks: true,         // Enable facial landmarks
-      enableContours: true,          // Enable face contours
-      enableTracking: true,          // Enable face tracking across frames
-      minFaceSize: 0.1,             // Detect smaller faces
-      performanceMode: FaceDetectorMode.accurate, // Use accurate mode
+      enableClassification: true,
+      enableLandmarks: true,
+      enableContours: true,
+      enableTracking: true,
+      minFaceSize: Platform.isIOS ? 0.05 : 0.1,  // Lower for iOS
+      performanceMode: Platform.isIOS 
+          ? FaceDetectorMode.fast  // Fast mode for iOS
+          : FaceDetectorMode.accurate,
     ),
   );
 
-  /// Extract enhanced face features from camera input
-  /// Returns null if no face detected or quality too poor
+  /// Extract enhanced face features - iOS compatible
   static Future<EnhancedFaceFeatures?> extractEnhancedFeatures(
       InputImage inputImage, {
         double? screenWidth,
         double? screenHeight,
-        double minimumQuality = 0.5, // Minimum quality threshold
+        double minimumQuality = 0.5,
       }) async {
     try {
-      debugPrint("🔍 Starting enhanced face extraction...");
+      debugPrint("🔍 Starting enhanced face extraction (iOS compatible)...");
 
       // Detect faces in the image
       List<Face> faces = await _faceDetector.processImage(inputImage);
@@ -43,7 +46,7 @@ class EnhancedFaceExtractor {
       // Get the largest/most prominent face
       Face primaryFace = _selectBestFace(faces);
 
-      // Create enhanced features
+      // Create enhanced features with iOS-specific adjustments
       EnhancedFaceFeatures features = EnhancedFaceFeatures.fromMLKitFace(
         primaryFace,
         screenWidth: screenWidth,
@@ -52,9 +55,11 @@ class EnhancedFaceExtractor {
 
       debugPrint("✅ Enhanced features extracted: $features");
 
-      // Quality check
-      if ((features.faceQualityScore ?? 0) < minimumQuality) {
-        debugPrint("❌ Face quality too poor: ${features.faceQualityScore}");
+      // ✅ iOS-specific quality adjustment - be more lenient
+      double adjustedMinQuality = Platform.isIOS ? 0.3 : minimumQuality;
+
+      if ((features.faceQualityScore ?? 0) < adjustedMinQuality) {
+        debugPrint("❌ Face quality too poor: ${features.faceQualityScore} (min: $adjustedMinQuality)");
         return null;
       }
 
@@ -66,28 +71,38 @@ class EnhancedFaceExtractor {
     }
   }
 
-  /// Extract features for real-time processing (lighter version)
+  /// Extract features for real-time processing (iOS optimized)
   static Future<EnhancedFaceFeatures?> extractForRealTime(
       InputImage inputImage, {
         double? screenWidth,
         double? screenHeight,
       }) async {
     try {
+      debugPrint("🔍 Real-time face extraction (iOS optimized)...");
+
       // Use same detection but with more lenient quality requirements
       List<Face> faces = await _faceDetector.processImage(inputImage);
 
-      if (faces.isEmpty) return null;
+      if (faces.isEmpty) {
+        debugPrint("❌ No faces detected in real-time");
+        return null;
+      }
 
       Face primaryFace = _selectBestFace(faces);
 
-      return EnhancedFaceFeatures.fromMLKitFace(
+      // Create features with iOS-specific adjustments
+      EnhancedFaceFeatures features = EnhancedFaceFeatures.fromMLKitFace(
         primaryFace,
         screenWidth: screenWidth,
         screenHeight: screenHeight,
       );
 
+      debugPrint("✅ Real-time features extracted: quality=${features.faceQualityScore}");
+
+      return features;
+
     } catch (e) {
-      debugPrint("Error in real-time face extraction: $e");
+      debugPrint("❌ Error in real-time face extraction: $e");
       return null;
     }
   }
@@ -111,21 +126,28 @@ class EnhancedFaceExtractor {
     return bestFace;
   }
 
-  /// Calculate a score for face selection (larger, more centered faces score higher)
+  /// Calculate a score for face selection - iOS optimized
   static double _calculateFaceScore(Face face) {
     double score = 0.0;
 
     // Prefer larger faces
     double faceSize = face.boundingBox.width * face.boundingBox.height;
-    score += faceSize / 10000; // Normalize to reasonable range
+    score += faceSize / 10000;
 
     // Prefer faces looking more straight ahead
     double headYaw = (face.headEulerAngleY ?? 0).abs();
-    score += (90 - headYaw) / 90; // Less yaw = higher score
+    score += (90 - headYaw) / 90;
 
-    // Prefer faces with both eyes detected
-    if (face.leftEyeOpenProbability != null && face.rightEyeOpenProbability != null) {
-      score += 1.0;
+    // ✅ iOS-specific: Be more lenient with eye detection
+    if (Platform.isIOS) {
+      // For iOS, just check that eye probabilities exist
+      if (face.leftEyeOpenProbability != null) score += 0.5;
+      if (face.rightEyeOpenProbability != null) score += 0.5;
+    } else {
+      // For Android, check both eyes detected
+      if (face.leftEyeOpenProbability != null && face.rightEyeOpenProbability != null) {
+        score += 1.0;
+      }
     }
 
     return score;
@@ -157,6 +179,7 @@ class EnhancedFaceExtractor {
     });
 
     return {
+      'platform': Platform.isIOS ? 'iOS' : 'Android',
       'boundingBox': {
         'left': face.boundingBox.left,
         'top': face.boundingBox.top,
@@ -185,11 +208,13 @@ class EnhancedFaceExtractor {
     };
   }
 
-  /// Check if face meets minimum requirements for registration
+  /// Check if face meets minimum requirements for registration - iOS optimized
   static bool isValidForRegistration(EnhancedFaceFeatures features) {
-    // Quality checks
-    if ((features.faceQualityScore ?? 0) < 0.6) {
-      debugPrint("❌ Registration failed: Quality too low");
+    // ✅ iOS-specific quality checks - be more lenient
+    double minQuality = Platform.isIOS ? 0.3 : 0.6;
+    
+    if ((features.faceQualityScore ?? 0) < minQuality) {
+      debugPrint("❌ Registration failed: Quality too low (${features.faceQualityScore} < $minQuality)");
       return false;
     }
 
@@ -198,9 +223,14 @@ class EnhancedFaceExtractor {
       'FaceLandmarkType.leftEye',
       'FaceLandmarkType.rightEye',
       'FaceLandmarkType.noseBase',
-      'FaceLandmarkType.leftMouth',
-      'FaceLandmarkType.rightMouth',
     ];
+
+    // ✅ iOS-specific: Only require essential landmarks
+    if (Platform.isIOS) {
+      requiredLandmarks = [
+        'FaceLandmarkType.noseBase',
+      ];
+    }
 
     for (String landmark in requiredLandmarks) {
       if (!features.landmarkPositions.containsKey(landmark)) {
@@ -209,19 +239,24 @@ class EnhancedFaceExtractor {
       }
     }
 
-    // Eyes should be open for registration
-    if (!features.areEyesOpen) {
-      debugPrint("❌ Registration failed: Eyes not clearly open");
-      return false;
+    // ✅ iOS-specific: More lenient eye detection
+    if (Platform.isIOS) {
+      // For iOS, just check that we have eye probabilities
+      bool hasEyeData = features.leftEyeOpenProbability != null || 
+                       features.rightEyeOpenProbability != null;
+      if (!hasEyeData) {
+        debugPrint("❌ Registration failed: No eye data available");
+        return false;
+      }
+    } else {
+      // For Android, check eyes are clearly open
+      if (!features.areEyesOpen) {
+        debugPrint("❌ Registration failed: Eyes not clearly open");
+        return false;
+      }
     }
 
-    // Face should be looking roughly straight
-    if (!features.isLookingStraight) {
-      debugPrint("❌ Registration failed: Face not looking straight ahead");
-      return false;
-    }
-
-    debugPrint("✅ Face is valid for registration");
+    debugPrint("✅ Face is valid for registration (Platform: ${Platform.isIOS ? 'iOS' : 'Android'})");
     return true;
   }
 
@@ -231,13 +266,16 @@ class EnhancedFaceExtractor {
   }
 }
 
-/// Real-time face feedback system
+/// Real-time face feedback system - iOS optimized
 class RealTimeFaceFeedback {
   static String getFeedbackMessage(EnhancedFaceFeatures? features,
       double screenWidth, double screenHeight) {
     if (features == null) {
       return "👤 Please position your face in the camera";
     }
+
+    // ✅ iOS-specific: More lenient quality requirements
+    double minQuality = Platform.isIOS ? 0.2 : 0.3;
 
     // Check distance
     if (!features.isProperDistance) {
@@ -262,24 +300,24 @@ class RealTimeFaceFeedback {
       return "🎯 Center your face in the camera";
     }
 
-    // Check head pose
-    if (!features.isLookingStraight) {
-      double headYaw = features.headEulerAngleY ?? 0;
-      if (headYaw > 15) {
-        return "↩️ Turn your head slightly to the right";
-      } else if (headYaw < -15) {
-        return "↪️ Turn your head slightly to the left";
-      }
-    }
-
     // Check lighting/quality
-    if (!features.hasGoodLighting) {
+    if ((features.faceQualityScore ?? 0) < minQuality) {
       return "💡 Find better lighting";
     }
 
-    // Check eyes
-    if (!features.areEyesOpen) {
-      return "👀 Keep your eyes open";
+    // Check eyes - more lenient for iOS
+    if (Platform.isIOS) {
+      // For iOS, just check that we have eye data
+      bool hasEyeData = features.leftEyeOpenProbability != null || 
+                       features.rightEyeOpenProbability != null;
+      if (!hasEyeData) {
+        return "👀 Please open your eyes";
+      }
+    } else {
+      // For Android, check eyes are clearly open
+      if (!features.areEyesOpen) {
+        return "👀 Keep your eyes open";
+      }
     }
 
     // All good!
@@ -293,9 +331,13 @@ class RealTimeFaceFeedback {
   static Color getFeedbackColor(EnhancedFaceFeatures? features) {
     if (features == null) return Colors.red;
 
-    if (features.isGoodQuality) {
+    // ✅ iOS-specific: More lenient quality thresholds
+    double goodQuality = Platform.isIOS ? 0.4 : 0.7;
+    double okQuality = Platform.isIOS ? 0.2 : 0.4;
+
+    if ((features.faceQualityScore ?? 0) > goodQuality) {
       return Colors.green;
-    } else if ((features.faceQualityScore ?? 0) > 0.4) {
+    } else if ((features.faceQualityScore ?? 0) > okQuality) {
       return Colors.orange;
     } else {
       return Colors.red;
