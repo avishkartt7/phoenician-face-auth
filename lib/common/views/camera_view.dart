@@ -1,3 +1,5 @@
+// lib/common/views/camera_view.dart - iOS COMPATIBLE VERSION
+
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -35,7 +37,6 @@ class _CameraViewState extends State<CameraView> {
 
   @override
   Widget build(BuildContext context) {
-    // Get screen dimensions directly from MediaQuery
     final double screenHeight = MediaQuery.of(context).size.height;
     final double screenWidth = MediaQuery.of(context).size.width;
 
@@ -61,7 +62,6 @@ class _CameraViewState extends State<CameraView> {
               backgroundColor: const Color(0xffD9D9D9),
               backgroundImage: FileImage(_image!),
             ),
-            // Add retake button
             GestureDetector(
               onTap: _resetImage,
               child: Container(
@@ -104,7 +104,6 @@ class _CameraViewState extends State<CameraView> {
                 ],
               ),
               shape: BoxShape.circle,
-              // Add subtle animation when capturing
               boxShadow: _isCapturing
                   ? [
                 BoxShadow(
@@ -130,7 +129,6 @@ class _CameraViewState extends State<CameraView> {
             color: primaryWhite.withOpacity(0.6),
           ),
         ),
-        // Show capture status
         if (_captureStatus != "Ready to capture")
           Padding(
             padding: const EdgeInsets.only(top: 8.0),
@@ -163,13 +161,13 @@ class _CameraViewState extends State<CameraView> {
         _captureStatus = "Opening camera...";
       });
 
-      // Use improved image settings for better quality
+      // ✅ iOS-specific camera settings
       final pickedFile = await _imagePicker?.pickImage(
         source: ImageSource.camera,
-        maxWidth: 600,     // Increased from 400 for better quality
-        maxHeight: 600,    // Increased from 400 for better quality
-        imageQuality: 85,  // Explicitly set quality (0-100)
-        preferredCameraDevice: CameraDevice.front, // Prefer front camera for face
+        maxWidth: Platform.isIOS ? 800 : 600,    // Higher resolution for iOS
+        maxHeight: Platform.isIOS ? 800 : 600,   // Higher resolution for iOS
+        imageQuality: Platform.isIOS ? 90 : 85,  // Higher quality for iOS
+        preferredCameraDevice: CameraDevice.front,
       );
 
       if (pickedFile != null) {
@@ -177,6 +175,12 @@ class _CameraViewState extends State<CameraView> {
         setState(() {
           _captureStatus = "Processing image...";
         });
+        
+        // ✅ Add delay for iOS processing
+        if (Platform.isIOS) {
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
+        
         await _setPickedFile(pickedFile);
         setState(() {
           _captureStatus = "Image captured successfully!";
@@ -214,21 +218,28 @@ class _CameraViewState extends State<CameraView> {
       // Read image bytes and validate
       Uint8List imageBytes = await _image!.readAsBytes();
 
-      // Check image size for quality validation
-      if (imageBytes.length < 20000) {
-        debugPrint("CAMERA: Warning - image size is small (${imageBytes.length} bytes), may cause authentication issues");
-        setState(() {
-          _captureStatus = "Warning: Low image quality, may affect recognition";
-        });
-      } else {
-        debugPrint("CAMERA: Good image quality (${imageBytes.length} bytes)");
-      }
+      debugPrint("CAMERA: Good image quality (${imageBytes.length} bytes)");
 
-      // Convert to base64 and pass to parent
+      // ✅ Pass to parent immediately
       widget.onImage(imageBytes);
 
-      // Create input image and process
-      InputImage inputImage = InputImage.fromFilePath(path);
+      // ✅ Create InputImage with iOS-specific handling
+      InputImage inputImage;
+      
+      if (Platform.isIOS) {
+        // iOS-specific InputImage creation
+        inputImage = InputImage.fromFilePath(path);
+      } else {
+        // Android InputImage creation
+        inputImage = InputImage.fromFilePath(path);
+      }
+
+      // ✅ Process with delay for iOS
+      if (Platform.isIOS) {
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
+
+      // Call the input image handler
       widget.onInputImage(inputImage);
 
     } catch (e) {
