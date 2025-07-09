@@ -1,4 +1,4 @@
-// lib/services/database_helper.dart
+// lib/services/database_helper.dart - FIXED VERSION
 
 import 'dart:async';
 import 'package:sqflite/sqflite.dart';
@@ -41,7 +41,7 @@ class DatabaseHelper {
     // Open/create the database
     return await openDatabase(
       path,
-      version: 5, // ← Updated version for leave management features
+      version: 5,
       onCreate: _createDb,
       onUpgrade: _onUpgrade,
     );
@@ -127,7 +127,7 @@ class DatabaseHelper {
     )
     ''');
 
-    // ✅ ENHANCED Leave applications table with all required fields
+    // ✅ FIXED: Leave applications table without INDEX declarations inside CREATE TABLE
     await _createTableIfNotExists(db, '''
     CREATE TABLE IF NOT EXISTS leave_applications(
       id TEXT PRIMARY KEY,
@@ -152,15 +152,11 @@ class DatabaseHelper {
       is_active INTEGER DEFAULT 1,
       is_synced INTEGER DEFAULT 0,
       created_at TEXT NOT NULL,
-      updated_at TEXT,
-      INDEX idx_employee_id (employee_id),
-      INDEX idx_manager_id (line_manager_id),
-      INDEX idx_status (status),
-      INDEX idx_leave_type (leave_type)
+      updated_at TEXT
     )
     ''');
 
-    // ✅ ENHANCED Leave balances table with proper structure
+    // ✅ FIXED: Leave balances table without INDEX declarations inside CREATE TABLE
     await _createTableIfNotExists(db, '''
     CREATE TABLE IF NOT EXISTS leave_balances(
       id TEXT PRIMARY KEY,
@@ -171,12 +167,41 @@ class DatabaseHelper {
       pending_days TEXT NOT NULL,
       last_updated TEXT,
       is_synced INTEGER DEFAULT 1,
-      UNIQUE(employee_id, year),
-      INDEX idx_employee_year (employee_id, year)
+      UNIQUE(employee_id, year)
     )
     ''');
 
+    // ✅ FIXED: Create indexes SEPARATELY after tables are created
+    await _createIndexes(db);
+
     print('Database tables created successfully');
+  }
+
+  // ✅ NEW: Create indexes separately from table creation
+  Future<void> _createIndexes(Database db) async {
+    print('Creating database indexes...');
+
+    try {
+      // Indexes for leave_applications table
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_employee_id ON leave_applications(employee_id)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_manager_id ON leave_applications(line_manager_id)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_status ON leave_applications(status)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_leave_type ON leave_applications(leave_type)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_application_date ON leave_applications(application_date)');
+
+      // Indexes for leave_balances table
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_employee_year ON leave_balances(employee_id, year)');
+
+      // Indexes for other tables
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_attendance_employee_date ON attendance(employee_id, date)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_overtime_requester ON overtime_requests(requester_id)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_overtime_approver ON overtime_requests(approver_id)');
+
+      print('Database indexes created successfully');
+    } catch (e) {
+      print('Error creating indexes: $e');
+      // Don't fail the entire database creation for index errors
+    }
   }
 
   Future<void> _createTableIfNotExists(Database db, String sql) async {
@@ -217,11 +242,11 @@ class DatabaseHelper {
     }
 
     if (oldVersion < 4) {
-      // Force recreate leave tables with basic structure
+      // Force recreate leave tables with correct schema
       await db.execute('DROP TABLE IF EXISTS leave_applications');
       await db.execute('DROP TABLE IF EXISTS leave_balances');
 
-      // Recreate with correct schema
+      // ✅ FIXED: Recreate with correct schema (no INDEX inside CREATE TABLE)
       await _createTableIfNotExists(db, '''
       CREATE TABLE IF NOT EXISTS leave_applications(
         id TEXT PRIMARY KEY,
@@ -259,35 +284,24 @@ class DatabaseHelper {
         used_days TEXT NOT NULL,
         pending_days TEXT NOT NULL,
         last_updated TEXT,
-        is_synced INTEGER DEFAULT 1
+        is_synced INTEGER DEFAULT 1,
+        UNIQUE(employee_id, year)
       )
       ''');
     }
 
     if (oldVersion < 5) {
-      // ✅ ENHANCED: Add indexes and constraints for better performance
-      try {
-        // Add indexes for leave_applications if they don't exist
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_employee_id ON leave_applications(employee_id)');
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_manager_id ON leave_applications(line_manager_id)');
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_status ON leave_applications(status)');
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_leave_type ON leave_applications(leave_type)');
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_application_date ON leave_applications(application_date)');
+      // ✅ FIXED: Add indexes separately during upgrade
+      await _createIndexes(db);
 
-        // Add indexes for leave_balances
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_employee_year ON leave_balances(employee_id, year)');
-
-        // Ensure created_at field exists and has default values
-        await db.execute('''
+      // Ensure created_at field exists and has default values
+      await db.execute('''
         UPDATE leave_applications 
         SET created_at = application_date 
         WHERE created_at IS NULL OR created_at = ''
         ''');
 
-        print('Enhanced indexes and constraints added successfully');
-      } catch (e) {
-        print('Error adding indexes: $e');
-      }
+      print('Enhanced indexes and constraints added successfully');
     }
   }
 
@@ -449,7 +463,8 @@ class DatabaseHelper {
           used_days TEXT NOT NULL,
           pending_days TEXT NOT NULL,
           last_updated TEXT,
-          is_synced INTEGER DEFAULT 1
+          is_synced INTEGER DEFAULT 1,
+          UNIQUE(employee_id, year)
         )
         ''');
         break;
@@ -485,7 +500,7 @@ class DatabaseHelper {
     print('Database cleared and reinitialized');
   }
 
-  // ✅ NEW: Method to get database info for debugging
+  // Get database info for debugging
   Future<Map<String, dynamic>> getDatabaseInfo() async {
     final db = await database;
     try {
@@ -519,7 +534,7 @@ class DatabaseHelper {
     }
   }
 
-  // ✅ NEW: Method to vacuum database for better performance
+  // Method to vacuum database for better performance
   Future<void> vacuum() async {
     final db = await database;
     try {
