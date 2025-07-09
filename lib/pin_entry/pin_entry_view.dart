@@ -1,10 +1,10 @@
-// lib/pin_entry/pin_entry_view.dart - FIXED WITH USER PROFILE FLOW
+// lib/pin_entry/pin_entry_view.dart - FIXED WITH AUTO-VERIFY AND KEYBOARD HIDE
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:phoenician_face_auth/common/utils/custom_snackbar.dart';
 import 'package:phoenician_face_auth/constants/theme.dart';
 import 'package:phoenician_face_auth/dashboard/dashboard_view.dart';
-import 'package:phoenician_face_auth/pin_entry/user_profile_view.dart'; // ✅ ADDED BACK
+import 'package:phoenician_face_auth/pin_entry/user_profile_view.dart';
 import 'package:phoenician_face_auth/model/user_model.dart';
 import 'package:phoenician_face_auth/admin/admin_login_view.dart';
 import 'package:flutter/material.dart';
@@ -23,15 +23,16 @@ class PinEntryView extends StatefulWidget {
 class _PinEntryViewState extends State<PinEntryView> with SingleTickerProviderStateMixin {
   final List<TextEditingController> _controllers = List.generate(
     4,
-        (index) => TextEditingController(),
+    (index) => TextEditingController(),
   );
   final List<FocusNode> _focusNodes = List.generate(
     4,
-        (index) => FocusNode(),
+    (index) => FocusNode(),
   );
 
   bool _isLoading = false;
   bool _isPinEntered = false;
+  bool _isAutoVerifying = false; // ✅ NEW: Track auto-verification state
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
 
@@ -59,14 +60,53 @@ class _PinEntryViewState extends State<PinEntryView> with SingleTickerProviderSt
       });
 
       _controllers[i].addListener(() {
-        // Check if all PIN fields are filled
-        _checkPinCompletion();
-
-        // Auto advance to next field
-        if (_controllers[i].text.length == 1 && i < 3) {
-          FocusScope.of(context).requestFocus(_focusNodes[i + 1]);
-        }
+        // ✅ ENHANCED: Auto-verify when PIN is complete
+        _handlePinInput(i);
       });
+    }
+  }
+
+  // ✅ NEW: Enhanced PIN input handling with auto-verification
+  void _handlePinInput(int index) {
+    // Auto advance to next field
+    if (_controllers[index].text.length == 1 && index < 3) {
+      FocusScope.of(context).requestFocus(_focusNodes[index + 1]);
+    }
+
+    // Check if all PIN fields are filled
+    _checkPinCompletion();
+
+    // ✅ NEW: Auto-verify when 4th digit is entered
+    if (index == 3 && _controllers[index].text.length == 1) {
+      _handleFourthDigitEntered();
+    }
+  }
+
+  // ✅ NEW: Handle when 4th digit is entered
+  void _handleFourthDigitEntered() async {
+    // Small delay to ensure UI updates
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    if (_pin.length == 4 && !_isAutoVerifying && !_isLoading) {
+      debugPrint("🔐 4th digit entered, auto-verifying PIN: $_pin");
+      
+      // ✅ Hide keyboard immediately
+      FocusScope.of(context).unfocus();
+      
+      // ✅ Hide keyboard using system method
+      SystemChannels.textInput.invokeMethod('TextInput.hide');
+      
+      // ✅ Auto-verify PIN
+      setState(() {
+        _isAutoVerifying = true;
+      });
+
+      // ✅ Auto-verify after short delay for better UX
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      if (mounted) {
+        await _verifyPin();
+      }
     }
   }
 
@@ -106,18 +146,31 @@ class _PinEntryViewState extends State<PinEntryView> with SingleTickerProviderSt
     }
     setState(() {
       _isPinEntered = false;
+      _isAutoVerifying = false; // ✅ Reset auto-verification state
     });
     FocusScope.of(context).requestFocus(_focusNodes[0]);
   }
 
-  // ✅ FIXED: Back to original flow with User Profile
+  // ✅ ENHANCED: PIN verification with better UX
   Future<void> _verifyPin() async {
     if (_pin.length != 4) {
       _showError("Please enter a 4-digit PIN");
       return;
     }
 
-    setState(() => _isLoading = true);
+    // ✅ Prevent multiple simultaneous verifications
+    if (_isLoading) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    // ✅ Hide keyboard again to be sure
+    FocusScope.of(context).unfocus();
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
+    
     HapticFeedback.mediumImpact();
 
     try {
@@ -125,7 +178,10 @@ class _PinEntryViewState extends State<PinEntryView> with SingleTickerProviderSt
 
       // Check if this is the admin PIN
       if (_pin == "9999") {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _isAutoVerifying = false;
+        });
         if (mounted) {
           Navigator.of(context).push(
             MaterialPageRoute(
@@ -136,45 +192,51 @@ class _PinEntryViewState extends State<PinEntryView> with SingleTickerProviderSt
         return;
       }
 
-      // ✅ STEP 1: Find employee by PIN
+      // ✅ Find employee by PIN
       final querySnapshot = await FirebaseFirestore.instance
           .collection("employees")
           .where("pin", isEqualTo: _pin)
           .limit(1)
           .get();
 
-      setState(() => _isLoading = false);
-
       if (querySnapshot.docs.isEmpty) {
+        setState(() {
+          _isLoading = false;
+          _isAutoVerifying = false;
+        });
         _showError("Invalid PIN. Please try again.");
         _animateErrorShake();
+        _clearPin(); // ✅ Clear PIN on error
         return;
       }
 
-      // ✅ STEP 2: Get employee data and create UserModel
+      // ✅ Get employee data and create UserModel
       final employeeDoc = querySnapshot.docs.first;
       final employeeData = employeeDoc.data();
       final employeeId = employeeDoc.id;
 
       debugPrint("✅ Employee found: ${employeeData['name']} ($employeeId)");
 
-      // ✅ STEP 3: Save authentication data (but not mark as fully authenticated yet)
+      // ✅ Save authentication data
       await _saveAuthenticationData(employeeId, employeeData);
 
-      // ✅ STEP 4: Create UserModel
+      // ✅ Create UserModel
       final employee = UserModel(
         id: employeeId,
         name: employeeData['name'] ?? 'Employee',
-        // Add other fields as needed
       );
 
-      // ✅ STEP 5: Determine if user is new or returning
+      // ✅ Determine if user is new or returning
       bool isNewUser = _determineIfNewUser(employeeData);
 
       debugPrint("🔍 User status: ${isNewUser ? 'New User' : 'Returning User'}");
-      debugPrint("📊 Registration status: ${employeeData.toString()}");
 
-      // ✅ STEP 6: Navigate to User Profile View (like the old working version)
+      setState(() {
+        _isLoading = false;
+        _isAutoVerifying = false;
+      });
+
+      // ✅ Navigate to User Profile View
       if (mounted) {
         Navigator.of(context).push(
           MaterialPageRoute(
@@ -188,16 +250,19 @@ class _PinEntryViewState extends State<PinEntryView> with SingleTickerProviderSt
       }
 
     } catch (e) {
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _isAutoVerifying = false;
+      });
       debugPrint("❌ PIN verification error: $e");
       _showError("Error verifying PIN: $e");
       _animateErrorShake();
+      _clearPin(); // ✅ Clear PIN on error
     }
   }
 
   // ✅ DETERMINE IF USER IS NEW OR RETURNING
   bool _determineIfNewUser(Map<String, dynamic> employeeData) {
-    // Check multiple fields to determine user status
     bool profileCompleted = employeeData['profileCompleted'] ?? false;
     bool registrationCompleted = employeeData['registrationCompleted'] ?? false;
     bool faceRegistered = employeeData['faceRegistered'] ?? false;
@@ -209,8 +274,6 @@ class _PinEntryViewState extends State<PinEntryView> with SingleTickerProviderSt
     debugPrint("   - faceRegistered: $faceRegistered");
     debugPrint("   - enhancedRegistration: $enhancedRegistration");
 
-    // User is considered "new" if they haven't completed the full registration process
-    // This includes profile setup AND face registration
     bool isFullyRegistered = profileCompleted &&
         registrationCompleted &&
         (faceRegistered || enhancedRegistration);
@@ -218,19 +281,16 @@ class _PinEntryViewState extends State<PinEntryView> with SingleTickerProviderSt
     return !isFullyRegistered;
   }
 
-  // ✅ SAVE AUTHENTICATION DATA (but not mark as fully authenticated)
+  // ✅ SAVE AUTHENTICATION DATA
   Future<void> _saveAuthenticationData(String employeeId, Map<String, dynamic> employeeData) async {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Save basic authentication data
       await prefs.setString('authenticated_user_id', employeeId);
       await prefs.setString('authenticated_employee_pin', _pin);
-      // ✅ DON'T mark as fully authenticated until registration is complete
       await prefs.setBool('is_authenticated', false);
       await prefs.setInt('authentication_timestamp', DateTime.now().millisecondsSinceEpoch);
 
-      // Save employee data
       Map<String, dynamic> dataToSave = Map<String, dynamic>.from(employeeData);
       dataToSave.forEach((key, value) {
         if (value is Timestamp) {
@@ -263,13 +323,16 @@ class _PinEntryViewState extends State<PinEntryView> with SingleTickerProviderSt
   }
 
   void _animateErrorShake() {
+    // ✅ Enhanced shake animation
+    HapticFeedback.heavyImpact();
+    
     // Simple shake animation for incorrect PIN
     final shakeCount = 3;
     final shakeDuration = 50;
     for (var i = 0; i < shakeCount * 2; i++) {
       Future.delayed(Duration(milliseconds: i * shakeDuration), () {
         if (mounted) {
-          // Animate container left/right slightly
+          // Could add shake animation here if needed
         }
       });
     }
@@ -277,13 +340,11 @@ class _PinEntryViewState extends State<PinEntryView> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    // Initialize context here as well for safety
     if (CustomSnackBar.context == null) {
       CustomSnackBar.context = context;
     }
 
     return Scaffold(
-      // Ensure we have a clean layout without any debug banners
       resizeToAvoidBottomInset: false,
       body: Container(
         width: double.infinity,
@@ -299,7 +360,6 @@ class _PinEntryViewState extends State<PinEntryView> with SingleTickerProviderSt
           ),
         ),
         child: SafeArea(
-          // Make sure content stays within safe area bounds
           maintainBottomViewPadding: true,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.start,
@@ -335,12 +395,17 @@ class _PinEntryViewState extends State<PinEntryView> with SingleTickerProviderSt
 
               const SizedBox(height: 12),
 
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 40),
+              // ✅ ENHANCED: Dynamic instruction text
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
                 child: Text(
-                  "Enter your 4-digit PIN to continue",
+                  _isAutoVerifying
+                      ? "Verifying your PIN..."
+                      : _isPinEntered
+                          ? "PIN entered successfully!"
+                          : "Enter your 4-digit PIN to continue",
                   style: TextStyle(
-                    color: Colors.white70,
+                    color: _isAutoVerifying ? Colors.yellow : Colors.white70,
                     fontSize: 16,
                   ),
                   textAlign: TextAlign.center,
@@ -356,42 +421,75 @@ class _PinEntryViewState extends State<PinEntryView> with SingleTickerProviderSt
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: List.generate(
                     4,
-                        (index) => _buildPinField(index),
+                    (index) => _buildPinField(index),
                   ),
                 ),
               ),
 
-              // Conditional verification UI
-              if (_isPinEntered) ...[
-                const SizedBox(height: 40),
-                SvgPicture.asset(
-                  'assets/images/pin_success.svg', // Your confirmation SVG
-                  height: 120,
-                  width: 120,
+              const SizedBox(height: 40),
+
+              // ✅ ENHANCED: Dynamic UI based on state
+              if (_isLoading || _isAutoVerifying) ...[
+                const CircularProgressIndicator(color: Colors.white),
+                const SizedBox(height: 16),
+                Text(
+                  _isAutoVerifying ? "Verifying PIN..." : "Processing...",
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
                 ),
-                const SizedBox(height: 20),
+              ] else if (_isPinEntered) ...[
+                // ✅ Success state - show success icon
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_circle_outline,
+                    color: Colors.green,
+                    size: 60,
+                  ),
+                ),
+                const SizedBox(height: 16),
                 const Text(
-                  "PIN entered successfully",
+                  "PIN verified successfully!",
                   style: TextStyle(
-                    color: Colors.white,
+                    color: Colors.green,
                     fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ] else ...[
-                const SizedBox(height: 40),
-                SvgPicture.asset(
-                  'assets/images/pin_entry_image.svg', // Your PIN entry SVG
-                  height: 140,
-                  width: 140,
+                // ✅ Default state - show PIN entry instruction
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.lock_outline,
+                    color: Colors.white,
+                    size: 60,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  "Enter your 4-digit PIN",
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 16,
+                  ),
                 ),
               ],
 
               const Spacer(),
 
-              // Action buttons
-              if (_isLoading)
-                const CircularProgressIndicator(color: Colors.white)
-              else if (_isPinEntered)
+              // ✅ ENHANCED: Action buttons (only show if not auto-verifying)
+              if (!_isAutoVerifying && !_isLoading && _isPinEntered) ...[
                 Padding(
                   padding: const EdgeInsets.only(bottom: 40),
                   child: Row(
@@ -422,7 +520,7 @@ class _PinEntryViewState extends State<PinEntryView> with SingleTickerProviderSt
 
                       const SizedBox(width: 20),
 
-                      // Next button
+                      // Manual Next button (for fallback)
                       GestureDetector(
                         onTapDown: (_) => _animationController.forward(),
                         onTapUp: (_) {
@@ -461,8 +559,8 @@ class _PinEntryViewState extends State<PinEntryView> with SingleTickerProviderSt
                       ),
                     ],
                   ),
-                )
-              else
+                ),
+              ] else if (!_isAutoVerifying && !_isLoading) ...[
                 const Padding(
                   padding: EdgeInsets.only(bottom: 40),
                   child: Text(
@@ -474,37 +572,40 @@ class _PinEntryViewState extends State<PinEntryView> with SingleTickerProviderSt
                     textAlign: TextAlign.center,
                   ),
                 ),
+              ],
 
               // Admin Login Button
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: TextButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => const AdminLoginView(),
-                        ),
-                      );
-                    },
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.admin_panel_settings, color: Colors.white70, size: 16),
-                        SizedBox(width: 4),
-                        Text(
-                          "Admin Login",
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
+              if (!_isAutoVerifying && !_isLoading) ...[
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const AdminLoginView(),
                           ),
-                        ),
-                      ],
+                        );
+                      },
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.admin_panel_settings, color: Colors.white70, size: 16),
+                          SizedBox(width: 4),
+                          Text(
+                            "Admin Login",
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -522,6 +623,13 @@ class _PinEntryViewState extends State<PinEntryView> with SingleTickerProviderSt
             ? Colors.white
             : Colors.white.withOpacity(0.2),
         borderRadius: BorderRadius.circular(12),
+        // ✅ Add border for better visual feedback
+        border: Border.all(
+          color: _controllers[index].text.isNotEmpty
+              ? accentColor
+              : Colors.transparent,
+          width: 2,
+        ),
       ),
       child: TextField(
         controller: _controllers[index],
@@ -530,6 +638,11 @@ class _PinEntryViewState extends State<PinEntryView> with SingleTickerProviderSt
         textAlign: TextAlign.center,
         maxLength: 1,
         obscureText: true,
+        // ✅ ENHANCED: Input formatters to ensure only numbers
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+          LengthLimitingTextInputFormatter(1),
+        ],
         style: TextStyle(
           color: _controllers[index].text.isNotEmpty
               ? accentColor
