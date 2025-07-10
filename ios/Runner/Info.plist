@@ -46,20 +46,89 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	
-	<!-- ✅ ADD THESE FOR FIREBASE NOTIFICATIONS -->
+	<!-- ✅ FIREBASE CONFIGURATION -->
 	<key>aps-environment</key>
 	<string>development</string>
 	
-	<!-- ✅ ADD THESE FOR CAMERA PERMISSIONS -->
+	<!-- ✅ URL SCHEMES FOR FIREBASE -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>googleservice</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.541867932129-3515ff2539cb13e255faa0</string>
+			</array>
+		</dict>
+	</array>
+	
+	<!-- ✅ PERMISSIONS -->
 	<key>NSCameraUsageDescription</key>
-	<string>This app needs camera access for face authentication.</string>
+	<string>This app needs camera access for face authentication and attendance tracking.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs photo library access to save face images.</string>
-	
-	<!-- ✅ ADD THESE FOR LOCATION PERMISSIONS -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app needs location access for attendance tracking.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>This app needs location access for attendance tracking.</string>
+	
+	<!-- 🆕 ML KIT FACE DETECTION PERMISSIONS -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>This app uses face detection for authentication purposes.</string>
+	
+	<!-- 🆕 CAMERA OPTIMIZATION SETTINGS -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>background-processing</string>
+	</array>
+	
+	<!-- 🆕 REQUIRED DEVICE CAPABILITIES -->
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>camera-front</string>
+		<string>autofocus-camera</string>
+	</array>
+	
+	<!-- 🆕 PREVENT APP SUSPENSION DURING CAMERA USE -->
+	<key>UIApplicationExitsOnSuspend</key>
+	<false/>
+	
+	<!-- 🆕 ML KIT MODEL DOWNLOAD CONDITIONS -->
+	<key>MLKitModelDownloadConditions</key>
+	<dict>
+		<key>MLKitModelDownloadConditionWifi</key>
+		<true/>
+		<key>MLKitModelDownloadConditionCharging</key>
+		<false/>
+		<key>MLKitModelDownloadConditionDeviceIdle</key>
+		<false/>
+	</dict>
+	
+	<!-- 🆕 METAL PERFORMANCE SHADERS -->
+	<key>MetalPerformanceShaders</key>
+	<true/>
+	
+	<!-- 🆕 PREVENT SCREEN DIMMING DURING FACE DETECTION -->
+	<key>UIIdleTimerDisabled</key>
+	<false/>
+	
+	<!-- 🆕 CAMERA QUALITY SETTINGS -->
+	<key>AVCaptureSessionPreset</key>
+	<string>AVCaptureSessionPresetHigh</string>
+	
+	<!-- 🆕 FACE DETECTION OPTIMIZATION -->
+	<key>MLKitFaceDetection</key>
+	<true/>
+	<key>MLKitFaceDetectionAccuracy</key>
+	<string>accurate</string>
+	
+	<!-- 🆕 CAMERA FOCUS SETTINGS -->
+	<key>CameraFocusMode</key>
+	<string>continuousAutoFocus</string>
+	
+	<!-- 🆕 THREAD PRIORITY FOR FACE DETECTION -->
+	<key>ThreadPriority</key>
+	<string>high</string>
 </dict>
 </plist>
