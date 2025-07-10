@@ -32,6 +32,11 @@ target 'Runner' do
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  
+  # Firebase specific pods (explicit dependencies)
+  pod 'Firebase/Messaging'
+  pod 'Firebase/Analytics'
+  
   target 'RunnerTests' do
     inherit! :search_paths
   end
@@ -40,5 +45,14 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+    
+    # Fix iOS deployment target for all pods
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+      
+      # Fix code signing issues
+      config.build_settings["ONLY_ACTIVE_ARCH"] = "NO"
+      config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+    end
   end
-end
+end 
