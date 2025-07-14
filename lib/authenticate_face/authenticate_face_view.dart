@@ -5,33 +5,32 @@ import 'dart:developer';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:phoenician_face_auth/services/secure_face_storage_service.dart';
+import 'package:face_auth_compatible/services/secure_face_storage_service.dart';
 
-
+import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:phoenician_face_auth/authenticate_face/scanning_animation/animated_view.dart';
-import 'package:phoenician_face_auth/authenticate_face/user_password_setup_view.dart';
-import 'package:phoenician_face_auth/authenticate_face/authentication_success_screen.dart';
-import 'package:phoenician_face_auth/common/utils/custom_snackbar.dart';
-import 'package:phoenician_face_auth/common/utils/extensions/size_extension.dart';
-import 'package:phoenician_face_auth/common/utils/extract_face_feature.dart';
-import 'package:phoenician_face_auth/common/views/camera_view.dart';
-import 'package:phoenician_face_auth/common/views/custom_button.dart';
-import 'package:phoenician_face_auth/constants/theme.dart';
-import 'package:phoenician_face_auth/model/user_model.dart';
-import 'package:phoenician_face_auth/services/connectivity_service.dart';
-import 'package:phoenician_face_auth/services/service_locator.dart';
+import 'package:face_auth_compatible/authenticate_face/scanning_animation/animated_view.dart';
+import 'package:face_auth_compatible/authenticate_face/user_password_setup_view.dart';
+import 'package:face_auth_compatible/authenticate_face/authentication_success_screen.dart';
+import 'package:face_auth_compatible/common/utils/custom_snackbar.dart';
+import 'package:face_auth_compatible/common/utils/extensions/size_extension.dart';
+import 'package:face_auth_compatible/common/utils/extract_face_feature.dart';
+import 'package:face_auth_compatible/common/views/camera_view.dart';
+import 'package:face_auth_compatible/common/views/custom_button.dart';
+import 'package:face_auth_compatible/constants/theme.dart';
+import 'package:face_auth_compatible/model/user_model.dart';
+import 'package:face_auth_compatible/services/connectivity_service.dart';
+import 'package:face_auth_compatible/services/service_locator.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_face_api/face_api.dart' as regula;
-
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 
 // Enhanced face detection imports
-import 'package:phoenician_face_auth/model/enhanced_face_features.dart';
-import 'package:phoenician_face_auth/common/utils/enhanced_face_extractor.dart';
+import 'package:face_auth_compatible/model/enhanced_face_features.dart';
+import 'package:face_auth_compatible/common/utils/enhanced_face_extractor.dart';
 
 /// Enhanced Face Authentication View with Cross-Platform Support
 /// Provides modern UI with real-time feedback and seamless user experience
@@ -59,7 +58,7 @@ class _AuthenticateFaceViewState extends State<AuthenticateFaceView>
     with TickerProviderStateMixin {
 
   // ================ CORE SERVICES & CONTROLLERS ================
-  
+  final AudioPlayer _audioPlayer = AudioPlayer();
   final FaceDetector _faceDetector = FaceDetector(
     options: FaceDetectorOptions(
       enableLandmarks: true,
@@ -248,13 +247,29 @@ class _AuthenticateFaceViewState extends State<AuthenticateFaceView>
   @override
   void dispose() {
     _faceDetector.close();
-    // Audio player disposed (removed for compatibility)
+    _audioPlayer.dispose();
     _pinController.dispose();
     _pulseController.dispose();
     _slideController.dispose();
     _rotateController.dispose();
     super.dispose();
   }
+
+  // ================ AUDIO FEEDBACK SYSTEM ================
+
+  AudioPlayer get _playScanningAudio => _audioPlayer
+    ..setReleaseMode(ReleaseMode.loop)
+    ..play(AssetSource("scan_beep.wav"));
+
+  AudioPlayer get _playSuccessAudio => _audioPlayer
+    ..stop()
+    ..setReleaseMode(ReleaseMode.release)
+    ..play(AssetSource("success.mp3"));
+
+  AudioPlayer get _playFailedAudio => _audioPlayer
+    ..stop()
+    ..setReleaseMode(ReleaseMode.release)
+    ..play(AssetSource("failed.mp3"));
 
   // ================ MAIN UI BUILD METHOD ================
 
@@ -1099,7 +1114,7 @@ class _AuthenticateFaceViewState extends State<AuthenticateFaceView>
       _lastAuthenticationAttempt = DateTime.now();
     });
 
-    // Start scanning audio (removed)
+    _playScanningAudio;
 
     // Verify face detection
     if (_faceFeatures == null) {
@@ -1112,7 +1127,7 @@ class _AuthenticateFaceViewState extends State<AuthenticateFaceView>
 
     bool hasFace = await _verifyFaceDetected();
     if (!hasFace) {
-      // Stop audio playback (removed)
+      _audioPlayer.stop();
       CustomSnackBar.errorSnackBar("No face detected in camera image. Please position your face in the camera and try again.");
       setState(() {
         isMatching = false;
@@ -1145,7 +1160,11 @@ class _AuthenticateFaceViewState extends State<AuthenticateFaceView>
 
   /// Handle successful authentication with navigation to success screen
   void _handleSuccessfulAuthentication() {
-    // Stop scanning audio and play success sound (removed)
+    // Stop scanning audio and play success sound
+    _audioPlayer
+      ..stop()
+      ..setReleaseMode(ReleaseMode.release)
+      ..play(AssetSource("success.mp3"));
 
     setState(() {
       trialNumber = 1;
@@ -1436,7 +1455,7 @@ class _AuthenticateFaceViewState extends State<AuthenticateFaceView>
 
   /// Prompt user for PIN when employee ID is not provided
   void _promptForPin() {
-    // Stop audio playback (removed)
+    _audioPlayer.stop();
     setState(() {
       isMatching = false;
       _isAuthenticating = false;
@@ -1532,7 +1551,7 @@ class _AuthenticateFaceViewState extends State<AuthenticateFaceView>
             isMatching = false;
             _isAuthenticating = false;
           });
-          // Play failed audio (removed)
+          _playFailedAudio;
           CustomSnackBar.errorSnackBar("Invalid PIN. Please try again.");
           return;
         }
@@ -1577,7 +1596,7 @@ class _AuthenticateFaceViewState extends State<AuthenticateFaceView>
             isMatching = false;
             _isAuthenticating = false;
           });
-          // Play failed audio (removed)
+          _playFailedAudio;
           CustomSnackBar.errorSnackBar("Invalid PIN or no cached data available");
           return;
         }
@@ -1593,7 +1612,7 @@ class _AuthenticateFaceViewState extends State<AuthenticateFaceView>
         isMatching = false;
         _isAuthenticating = false;
       });
-      // Play failed audio (removed)
+      _playFailedAudio;
       CustomSnackBar.errorSnackBar("Error verifying PIN: $e");
     }
   }
@@ -1762,7 +1781,7 @@ class _AuthenticateFaceViewState extends State<AuthenticateFaceView>
           isMatching = false;
           _isAuthenticating = false;
         });
-        // Play failed audio (removed)
+        _playFailedAudio;
 
         // Enhanced error message
         String errorMessage = "No registered face found for this employee.";
@@ -1797,7 +1816,7 @@ class _AuthenticateFaceViewState extends State<AuthenticateFaceView>
         _lastAuthResult = "Failed - Error: $e";
         _hasAuthenticated = false;
       });
-      // Play failed audio (removed)
+      _playFailedAudio;
       _showFailureDialog(
         title: "Authentication Error",
         description: "Error during face matching: $e",
@@ -1840,7 +1859,7 @@ class _AuthenticateFaceViewState extends State<AuthenticateFaceView>
           _isAuthenticating = false;
           _lastAuthResult = "Failed - No results from SDK";
         });
-        // Play failed audio (removed)
+        _playFailedAudio;
         _showFailureDialog(
           title: "Authentication Failed",
           description: "Unable to process face comparison. Please try again with better lighting.",
@@ -1880,7 +1899,7 @@ class _AuthenticateFaceViewState extends State<AuthenticateFaceView>
           _isAuthenticating = false;
           _hasAuthenticated = false;
         });
-        // Play failed audio (removed)
+        _playFailedAudio;
         _showFailureDialog(
           title: "Authentication Failed",
           description: "Face doesn't match. Please ensure good lighting and try again.",
@@ -1903,7 +1922,7 @@ class _AuthenticateFaceViewState extends State<AuthenticateFaceView>
           isMatching = false;
           _isAuthenticating = false;
         });
-        // Play failed audio (removed)
+        _playFailedAudio;
         _showFailureDialog(
           title: "Authentication Failed",
           description: "No face detected. Please try again with better lighting.",
@@ -1926,7 +1945,7 @@ class _AuthenticateFaceViewState extends State<AuthenticateFaceView>
           isMatching = false;
           _isAuthenticating = false;
         });
-        // Play failed audio (removed)
+        _playFailedAudio;
         _showFailureDialog(
           title: "Authentication Failed",
           description: "Please keep your eyes open during authentication.",
@@ -1952,7 +1971,7 @@ class _AuthenticateFaceViewState extends State<AuthenticateFaceView>
           isMatching = false;
           _isAuthenticating = false;
         });
-        // Play failed audio (removed)
+        _playFailedAudio;
         _showFailureDialog(
           title: "Authentication Failed",
           description: "No face reference data found for offline authentication.",
@@ -2024,7 +2043,7 @@ class _AuthenticateFaceViewState extends State<AuthenticateFaceView>
           _isAuthenticating = false;
           _hasAuthenticated = false;
         });
-        // Play failed audio (removed)
+        _playFailedAudio;
         _showFailureDialog(
           title: "Authentication Failed",
           description: "Face doesn't match. Please try again with good lighting and keep your eyes open.",
@@ -2039,7 +2058,7 @@ class _AuthenticateFaceViewState extends State<AuthenticateFaceView>
         isMatching = false;
         _isAuthenticating = false;
       });
-      // Play failed audio (removed)
+      _playFailedAudio;
       _showFailureDialog(
         title: "Authentication Failed",
         description: "Error during face matching: $e",
@@ -2105,7 +2124,7 @@ class _AuthenticateFaceViewState extends State<AuthenticateFaceView>
   void _showStoragePermissionErrorDialog() {
     if (!mounted) return;
 
-    // Play failed audio (removed)
+    _playFailedAudio;
     showDialog(
       context: context,
       builder: (BuildContext context) => AlertDialog(
@@ -2155,7 +2174,7 @@ class _AuthenticateFaceViewState extends State<AuthenticateFaceView>
     required String title,
     required String description,
   }) {
-    // Play failed audio (removed)
+    _playFailedAudio;
     setState(() {
       isMatching = false;
       _isAuthenticating = false;
