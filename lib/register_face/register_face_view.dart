@@ -7,28 +7,28 @@ import 'dart:async';
 import 'dart:math';
 import 'package:permission_handler/permission_handler.dart';
 
-import 'package:phoenician_face_auth/services/registration_completion_service.dart';
-import 'package:phoenician_face_auth/dashboard/dashboard_view.dart';
+import 'package:face_auth_compatible/services/registration_completion_service.dart';
+import 'package:face_auth_compatible/dashboard/dashboard_view.dart';
 
 // Enhanced utilities imports
-import 'package:phoenician_face_auth/model/enhanced_face_features.dart';
-import 'package:phoenician_face_auth/common/utils/enhanced_face_extractor.dart';
+import 'package:face_auth_compatible/model/enhanced_face_features.dart';
+import 'package:face_auth_compatible/common/utils/enhanced_face_extractor.dart';
 
 // Existing imports
-import 'package:phoenician_face_auth/services/secure_face_storage_service.dart';
+import 'package:face_auth_compatible/services/secure_face_storage_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:phoenician_face_auth/common/views/camera_view.dart';
-import 'package:phoenician_face_auth/common/views/custom_button.dart';
-import 'package:phoenician_face_auth/constants/theme.dart';
-import 'package:phoenician_face_auth/model/user_model.dart';
-import 'package:phoenician_face_auth/common/utils/custom_snackbar.dart';
+import 'package:face_auth_compatible/common/views/camera_view.dart';
+import 'package:face_auth_compatible/common/views/custom_button.dart';
+import 'package:face_auth_compatible/constants/theme.dart';
+import 'package:face_auth_compatible/model/user_model.dart';
+import 'package:face_auth_compatible/common/utils/custom_snackbar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:phoenician_face_auth/authenticate_face/authenticate_face_view.dart';
+import 'package:face_auth_compatible/authenticate_face/authenticate_face_view.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:phoenician_face_auth/services/connectivity_service.dart';
-import 'package:phoenician_face_auth/services/service_locator.dart';
+import 'package:face_auth_compatible/services/connectivity_service.dart';
+import 'package:face_auth_compatible/services/service_locator.dart';
 
 class RegisterFaceView extends StatefulWidget {
   final String employeeId;
